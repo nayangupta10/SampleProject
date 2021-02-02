@@ -15,6 +15,7 @@ import com.nayan.sampleproject.model.Doc;
 import com.nayan.sampleproject.view.MainActivity;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -24,22 +25,23 @@ public class SQLiteDatabaseHandler extends SQLiteOpenHelper {
     private static final int DATABASE_VERSION = 1;
     private static final String DATABASE_NAME = "SampleDB";
     private static final String TABLE_NAME = "Sample";
+    private static final String KEY_UNIQUE = "sample_project_id";
     private static final String KEY_ID = "id";
-    private static final String KEY_UNIQUE = "id";
     private static final String KEY_PUBLICATION_DATE = "publication_date";
     private static final String KEY_ARTICLE_TYPE = "article_type";
-    private static final String[] COLUMNS = { KEY_ID, KEY_PUBLICATION_DATE, KEY_ARTICLE_TYPE};
+    private static final String KEY_ABSTRACT = "abstract";
+    private static final String[] COLUMNS = {KEY_UNIQUE, KEY_ID, KEY_PUBLICATION_DATE, KEY_ARTICLE_TYPE, KEY_ABSTRACT};
 
     public SQLiteDatabaseHandler(@Nullable Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
-        this.context=context;
+        this.context = context;
     }
 
     @Override
     public void onCreate(SQLiteDatabase db) {
         String CREATION_TABLE = "CREATE TABLE " + TABLE_NAME + "("
-                + KEY_ID + " INTEGER PRIMARY KEY," + KEY_PUBLICATION_DATE + " TEXT,"
-                + KEY_ARTICLE_TYPE + " TEXT" + ")";
+                + KEY_UNIQUE + "INTEGER PRIMARY KEY," + KEY_ID + " TEXT," + KEY_PUBLICATION_DATE + " TEXT,"
+                + KEY_ARTICLE_TYPE + " TEXT," + KEY_ABSTRACT + " TEXT" + ")";
         db.execSQL(CREATION_TABLE);
     }
 
@@ -49,45 +51,48 @@ public class SQLiteDatabaseHandler extends SQLiteOpenHelper {
         this.onCreate(db);
     }
 
-    public Doc getDoc(int id){
+    public Doc getDoc(int id) {
 
         SQLiteDatabase db = this.getReadableDatabase();
-        Cursor cursor = db.query(TABLE_NAME, new String[] { KEY_ID,
-                        KEY_PUBLICATION_DATE, KEY_ARTICLE_TYPE }, KEY_ID + "=?",
-                new String[] { String.valueOf(id) }, null, null, null, null);
+        Cursor cursor = db.query(TABLE_NAME, new String[]{KEY_UNIQUE, KEY_ID,
+                        KEY_PUBLICATION_DATE, KEY_ARTICLE_TYPE, KEY_ABSTRACT}, KEY_UNIQUE + "=?",
+                new String[]{String.valueOf(id)}, null, null, null, null);
 
         if (cursor != null)
             cursor.moveToFirst();
-        Doc doc=new Doc();
-        doc.setId(cursor.getString(0));
-        doc.setPublicationDate(cursor.getString(1));
-        doc.setArticleType(cursor.getString(2));
+        Doc doc = new Doc();
+        doc.setId(cursor.getString(cursor.getColumnIndex(KEY_ID)));
+        doc.setPublicationDate(cursor.getString(cursor.getColumnIndex(KEY_PUBLICATION_DATE)));
+        doc.setArticleType(cursor.getString(cursor.getColumnIndex(KEY_ARTICLE_TYPE)));
         return doc;
     }
 
-    public List<Doc> getAllDocs(){
-        List<Doc> docList = new ArrayList<Doc>();
+    public List<Doc> getAllDocs() {
+        List<Doc> docList = new ArrayList<>();
         String query = "SELECT  * FROM " + TABLE_NAME;
         SQLiteDatabase db = this.getWritableDatabase();
         Cursor cursor = db.rawQuery(query, null);
-        Doc doc = null;
+        Doc doc;
 
-        if (cursor.moveToFirst()) {
-            do {
-                doc = new Doc();
-                doc.setId(cursor.getString(0));
-                doc.setPublicationDate(cursor.getString(1));
-                doc.setArticleType(cursor.getString(2));
-                docList.add(doc);
-            } while (cursor.moveToNext());
+        try {
+            if (cursor.moveToFirst()) {
+                do {
+                    doc = new Doc();
+             //       doc.setId(cursor.getString(cursor.getColumnIndex(KEY_ID)));
+                    doc.setPublicationDate(cursor.getString(cursor.getColumnIndex(KEY_PUBLICATION_DATE)));
+                    doc.setArticleType(cursor.getString(cursor.getColumnIndex(KEY_ARTICLE_TYPE)));
+                    List<String> array = new ArrayList<String>();
+                    String uname = cursor.getString(cursor.getColumnIndex(KEY_ABSTRACT));
+                    array.add(uname);
+                    doc.setAbstract(array);
+                    docList.add(doc);
+                } while (cursor.moveToNext());
+            }
+        }catch (Exception e){
+            Log.d("Exception: ",e.toString());
         }
 
-        for (Doc cn : docList) {
-            String log = "Id: " + cn.getId() + " ,PublicationDate: " + cn.getPublicationDate() + " ,ArticleType: " +
-                    cn.getArticleType();
-            // Writing Contacts to log
-            Log.d("Name: ", log);
-        }
+
         return docList;
     }
 
@@ -95,15 +100,22 @@ public class SQLiteDatabaseHandler extends SQLiteOpenHelper {
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues values = new ContentValues();
 
-        for(int i=0;i<doc.size();i++){
-            values.put(KEY_PUBLICATION_DATE, doc.get(i).getPublicationDate());
-            values.put(KEY_ARTICLE_TYPE, doc.get(i).getArticleType());
+        try {
+            for (int i = 0; i < doc.size(); i++) {
+            //    values.put(KEY_ID, doc.get(i).getId());
+                values.put(KEY_PUBLICATION_DATE, doc.get(i).getPublicationDate());
+                values.put(KEY_ARTICLE_TYPE, doc.get(i).getArticleType());
+
+                values.put(KEY_ABSTRACT, doc.get(i).getAbstract().get(0));
+                Log.d("Added ", "" + values);
+                // insert
+                db.insertOrThrow(TABLE_NAME, null, values);
+            }
+        } catch (Exception e) {
+            Log.e("Problem", e + " ");
         }
-
-
-        // insert
-        db.insert(TABLE_NAME,null, values);
         db.close();
+
     }
 
     public int updateDoc(Doc doc) {
@@ -115,7 +127,7 @@ public class SQLiteDatabaseHandler extends SQLiteOpenHelper {
         int i = db.update(TABLE_NAME, // table
                 values, // column/value
                 "id = ?", // selections
-                new String[] { String.valueOf(doc.getId()) });
+                new String[]{String.valueOf(doc.getId())});
 
         db.close();
 
@@ -130,5 +142,11 @@ public class SQLiteDatabaseHandler extends SQLiteOpenHelper {
 
         // return count
         return cursor.getCount();
+    }
+
+    public void deleteAll() {
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.execSQL("delete from " + TABLE_NAME);
+        db.close();
     }
 }

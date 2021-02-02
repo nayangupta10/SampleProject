@@ -42,7 +42,6 @@ public class ListAdapter extends RecyclerView.Adapter<ListAdapter.ViewHolder> {
         holder.recyclerViewAbstract.setHasFixedSize(true);
         AbstractListAdapter abstractListAdapter=new AbstractListAdapter(context,docArrayList.get(position).getAbstract());
         holder.recyclerViewAbstract.setAdapter(abstractListAdapter);
-
     }
 
     @Override

@@ -30,20 +30,22 @@ import retrofit2.Callback;
 import retrofit2.Response;
 
 public class MainActivity extends AppCompatActivity {
-    private ApiRequest apiRequest;
     List<Doc> docArrayList = new ArrayList<>();
+    Doc doc;
     DocViewModel docViewModel;
     ProgressBar progressBar;
     public static ListAdapter listAdapter;
     private SQLiteDatabaseHandler db;
+    RecyclerView recyclerView;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         db = new SQLiteDatabaseHandler(this);
+        doc = new Doc();
         progressBar = (ProgressBar) findViewById(R.id.progress_bar);
-        RecyclerView recyclerView = (RecyclerView) findViewById(R.id.recycler_view);
+        recyclerView = (RecyclerView) findViewById(R.id.recycler_view);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         recyclerView.setHasFixedSize(true);
         listAdapter = new ListAdapter(this, (ArrayList<Doc>) docArrayList);
@@ -55,27 +57,39 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void getDoc() {
-
-
         if (Utils.isInternetConnected(this)) {
+
+            //to delete data from database before adding new data
+            db.deleteAll();
             docViewModel.getExampleLiveData().observe(this, docResponse -> {
                 if (docResponse != null) {
-
                     progressBar.setVisibility(View.GONE);
                     List<Doc> articles = docResponse.getResponse().getDocs();
                     docArrayList.addAll(articles);
-                    listAdapter.notifyDataSetChanged();
-                    //db
-                    if (docArrayList != null)
+                    if (docArrayList != null) {
+                        db = new SQLiteDatabaseHandler(this);
+                        //adding data in database
                         db.addDoc(docArrayList);
+                    }
+                    listAdapter.notifyDataSetChanged();
                 }
             });
 
         } else {
-             progressBar.setVisibility(View.GONE);
+            progressBar.setVisibility(View.GONE);
 
-              db.getAllDocs();
-              Toast.makeText(this,"No Internet Connection",Toast.LENGTH_SHORT).show();
+            List<Doc> list = db.getAllDocs();
+            for (Doc cn : list) {
+                String log = "Id: " + cn.getId() + " ,PublicationDate: " + cn.getPublicationDate() + " ,ArticleType: " +
+                        cn.getArticleType();
+                // Writing Contacts to log
+                Log.d("Name: ", log);
+            }
+            if (list != null) {
+                listAdapter = new ListAdapter(this, (ArrayList<Doc>) list);
+                recyclerView.setAdapter(listAdapter);
+            } else
+                Toast.makeText(this, "No Internet Connection", Toast.LENGTH_SHORT).show();
         }
 
     }
